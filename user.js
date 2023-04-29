@@ -40,8 +40,12 @@ class User {
                 users.splice(index, 1);
             }
             
-        return users;       
+        return users;
+                
+            
+       
     }
+
 }
 
 module.exports = User;

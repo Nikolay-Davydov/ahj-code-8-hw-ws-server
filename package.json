@@ -6,6 +6,8 @@
   "scripts": {
     "prestart": "npm install",
     "start": "forever server.js",
+    "build": "webpack --mode production",
+    "lint": "eslint",
     "watch": "forever -v -w server.js"
   },
   "author": "coursar",
