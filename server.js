@@ -11,8 +11,8 @@ const User = require('./user')
 const app = new Koa();
 const router = new Router();
 
-
-app.use(cors());
+//выдовало варнинг на этой строке.
+// app.use(cors());
 
 app.use(koaBody({
     urlencoded: true,
