@@ -1,74 +1,111 @@
 const http = require('http');
-// const path = require("path");
+const { HttpError } = require('koa');
 const Koa = require('koa');
 const { koaBody } = require('koa-body');
+//const  cors  = require('cors');
 const Router = require('koa-router');
-const cors = require('koa-cors');
-const WS = require('ws');
-const User = require('./user')
-
-
+const WS =require('ws');
 const app = new Koa();
 const router = new Router();
+ 
 
-//выдовало варнинг на этой строке.
-// app.use(cors());
+app.use((ctx, next) => {
+    const origin = ctx.request.get('Origin');
+    if (!origin) {
+      return  next();
+       
+    }
+   
+    const headers = { 'Access-Control-Allow-Origin': '*', };
+  
+    if (ctx.request.method !== 'OPTIONS') {
+      ctx.response.set({ ...headers });
+      try {
+        return next();
+      } catch (e) {
+        e.headers = { ...e.headers, ...headers };
+        throw e;
+      }
+    }
+  
+    if (ctx.request.get('Access-Control-Request-Method')) {
+      ctx.response.set({
+        ...headers,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH',
+      });
+  
+      if (ctx.request.get('Access-Control-Request-Headers')) {
+        ctx.response.set('Access-Control-Allow-Headers', ctx.request.get('Access-Control-Request-Headers'));
+      }
+  
+      ctx.response.status = 204;
+    }
+  });
 
+  
 app.use(koaBody({
     urlencoded: true,
-    multipart: true,
-    text: true,
-    json: true,
 }));
-
-router.get('/index', async (ctx) => {
-    ctx.response.body = 'hello';
+  
+router.post('/checkUserName', async (ctx) => {
+    const{ user, id } = ctx.request.body;
+    if (Object.values(chatUsers).includes(user)){
+       ctx.response.status = 202
+       ctx.response.body = { status: "name taken" };
+       return
+    }
+    chatUsers[count-1]=user;
+    ctx.response.status = 200
 });
 
-const port = process.env.PORT || 8080;
-const server = http.createServer(app.callback());
-const wsServer = new WS.Server({ server });
-
-
-wsServer.on('connection', (ws, req) => {
-    ws.on('message', async (msg) => {
-        
-        const message = JSON.parse(msg);
-
-        if(message.type === 'addUser') {
-            const user = User.getByName(message.user);
-            if(!user) {
-            const newUser = new User(message.user);
-            newUser.save();
-                                
-                const users = User.getAll();
-
-                [...wsServer.clients]
-                    .filter(o => o.readyState === WS.OPEN)
-                    .forEach(o => o.send(JSON.stringify({ type: 'users', data: users })));
-
-                return;
-            }
-            ws.send(JSON.stringify({ type: 'error'}));
-            return;
-
-        } else if(message.type === 'addMes') {
-            [...wsServer.clients]
-                .filter(o => o.readyState === WS.OPEN)
-                .forEach(o => o.send(JSON.stringify({ type: 'addMes', data: message })));
-
-        } else if(message.type === 'deleteUser') {
-
-            User.deleteUser(message.user);
-            const users = User.getAll();
-            [...wsServer.clients]
-                .filter(o => o.readyState === WS.OPEN)
-                .forEach(o => o.send(JSON.stringify({ type: 'users', data: users })));
-
-        }
-
-    });
-});
-
+ 
 app.use(router.routes()).use(router.allowedMethods());
-server.listen(port);
+
+const port = process.env.port ||9090;
+const server = http.createServer(app.callback());
+
+const wsServer = new WS.Server({server});
+ 
+let chatUsers = {
+
+};
+ 
+let chat =[];
+
+var count =  1 ; 
+
+ 
+wsServer.on('connection', (ws)=>{
+
+  const userId = count++;
+  console.log('connect user: ' + userId);
+
+  ws.on('message', (e)=>{
+    const message = JSON.parse(Buffer.from(e).toString());
+    message['date'] = `${new Date().getDate()}.${new Date().getMonth()}.${new Date().getFullYear()} ${new Date().getHours()}:${new Date().getMinutes()}`;
+    chat.push(message);
+
+    Array.from(wsServer.clients)
+      .filter(client => client.readyState == WS.OPEN)
+      .forEach(client => client.send(JSON.stringify({type: 'lastMessage', payload: message})))
+
+  })
+   
+  ws.on('close', () =>{
+    console.log('disconnect user: ' + userId)
+    delete chatUsers[userId-1];
+    Array.from(wsServer.clients)
+      .filter(client => client.readyState == WS.OPEN) 
+      .forEach(client => client.send(JSON.stringify({type: 'users', payload: {chatUsers}})));
+  });
+
+  Array.from(wsServer.clients)
+    .filter(client => client.readyState == WS.OPEN)
+    .forEach(client => client.send(JSON.stringify({type: 'chat', payload: {chat}})));
+  Array.from(wsServer.clients)
+    .filter(client => client.readyState == WS.OPEN)
+    .forEach(client => client.send(JSON.stringify({type: 'users', payload: {chatUsers}})));
+});
+
+  
+server.listen(port)
