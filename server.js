@@ -8,10 +8,10 @@ const WS =require('ws');
 
 const router = new Router();
 
-const express = require('express');
+// const express = require('express');
 
-// const app = new Koa();
-const app = express();
+const app = new Koa();
+// const app = express();
  
 
 app.use((ctx, next) => {
@@ -66,7 +66,7 @@ router.post('/checkUserName', async (ctx) => {
  
 app.use(router.routes()).use(router.allowedMethods());
 
-const port = process.env.port ||9090;
+const port = process.env.port ||9000;
 const server = http.createServer(app.callback());
 
 const wsServer = new WS.Server({server});
